@@ -5,7 +5,7 @@ import os
 
 from tokenizer import SimpleTokenizer
 from dataset import SpeechesClassificationDataset, LanguageModelingDataset
-from transformer import Classifier
+from transformer import Classifier, Decoder
 
 
 seed = 42
@@ -20,6 +20,7 @@ learning_rate = 1e-3  # Learning rate for the optimizer
 n_embd = 64  # Embedding dimension
 n_head = 2  # Number of attention heads
 n_layer = 4  # Number of transformer layers
+dropout = 0
 
 eval_interval = 100  # How often to evaluate train and test perplexity during training
 max_iters = 500  # For language modeling, we can process all the batches for the entire dataset, but that takes a while, so we'll limit it to 500 iterations. For batch size of 16 and block size of  32, this is roughly, this is  500 * 16 * 32 = 256000 tokens, SOTA LMs are trained on trillions of tokens, so this is a very small dataset.
@@ -133,7 +134,7 @@ def main():
         n_head,
         n_layer,
         block_size,
-        0.1,
+        dropout,
         n_input,
         n_hidden,
         n_output,
@@ -149,11 +150,26 @@ def main():
         print(epoch, loss.item())
 
     # for the language modeling task, you will iterate over the training data for a fixed number of iterations like this:
+    LM_model = Decoder(
+        tokenizer.vocab_size,
+        n_embd,
+        n_head,
+        n_layer,
+        block_size,
+        dropout,
+        CLS_model.encoder.token_embedding_table,
+        CLS_model.encoder.position_embedding_table,
+    ).to(device)
+    optimizer = torch.optim.AdamW(LM_model.parameters(), lr=learning_rate)
     for i, (xb, yb) in enumerate(train_LM_loader):
         if i >= max_iters:
             break
         xb, yb = xb.to(device), yb.to(device)
-        # LM training code here
+        logits, loss = LM_model(xb, yb)
+        optimizer.zero_grad(set_to_none=True)
+        loss.backward()
+        optimizer.step()
+        print(i, loss.item())
 
 
 if __name__ == "__main__":
