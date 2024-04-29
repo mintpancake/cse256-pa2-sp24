@@ -110,6 +110,7 @@ def compute_perplexity(decoderLMmodel, data_loader, eval_iters=100):
 
 
 def main():
+    torch.manual_seed(256)
     print("Loading data and creating tokenizer ...")
     texts = load_texts("speechesdataset")
     tokenizer = SimpleTokenizer(" ".join(texts))  # create a tokenizer from the data
