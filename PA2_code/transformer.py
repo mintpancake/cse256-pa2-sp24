@@ -14,6 +14,7 @@ class Head(nn.Module):
         self.register_buffer("tril", torch.tril(torch.ones(block_size, block_size)))
         self.dropout = nn.Dropout(dropout)
         self.masked = masked
+        self.attn_map: torch.Tensor = None
 
     def forward(self, x: torch.Tensor):
         B, T, C = x.shape
@@ -23,6 +24,7 @@ class Head(nn.Module):
         if self.masked:
             wei = wei.masked_fill(self.tril[:T, :T] == 0, float("-inf"))
         wei = F.softmax(wei, dim=-1)
+        self.attn_map = wei
         wei = self.dropout(wei)
         v = self.value(x)
         out = wei @ v
@@ -48,10 +50,12 @@ class MultiHeadAttention(nn.Module):
         )
         self.proj = nn.Linear(head_size * num_heads, n_embd)
         self.dropout = nn.Dropout(dropout)
+        self.attn_maps: torch.Tensor = None
 
     def forward(self, x: torch.Tensor):
         out = torch.cat([h(x) for h in self.heads], dim=-1)
         out = self.dropout(self.proj(out))
+        self.attn_maps = torch.stack([h.attn_map for h in self.heads])
         return out
 
 
@@ -81,54 +85,16 @@ class Block(nn.Module):
         self.ffwd = FeedFoward(n_embd, dropout)
         self.ln1 = nn.LayerNorm(n_embd)
         self.ln2 = nn.LayerNorm(n_embd)
+        self.attn_maps: torch.Tensor = None
 
     def forward(self, x: torch.Tensor):
         x = x + self.sa(self.ln1(x))
         x = x + self.ffwd(self.ln2(x))
+        self.attn_maps = self.sa.attn_maps
         return x
 
 
 class Encoder(nn.Module):
-    def __init__(
-        self,
-        vocab_size: int,
-        n_embd: int,
-        n_head: int,
-        n_layer: int,
-        block_size: int,
-        dropout: float,
-    ):
-        super().__init__()
-        self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
-        self.position_embedding_table = nn.Embedding(block_size, n_embd)
-        self.blocks = nn.Sequential(
-            *[
-                Block(n_embd, n_head, block_size, dropout, masked=False)
-                for _ in range(n_layer)
-            ]
-        )
-        self.ln_f = nn.LayerNorm(n_embd)
-        self.apply(self._init_weights)
-
-    def _init_weights(self, module):
-        if isinstance(module, nn.Linear):
-            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
-            if module.bias is not None:
-                torch.nn.init.zeros_(module.bias)
-        elif isinstance(module, nn.Embedding):
-            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
-
-    def forward(self, idx: torch.Tensor):
-        B, T = idx.shape
-        tok_emb = self.token_embedding_table(idx)
-        pos_emb = self.position_embedding_table(torch.arange(T))
-        x = tok_emb + pos_emb
-        x = self.blocks(x)
-        x = self.ln_f(x)
-        return x
-
-
-class Classifier(nn.Module):
     def __init__(
         self,
         vocab_size: int,
@@ -142,16 +108,30 @@ class Classifier(nn.Module):
         n_output: int,
     ):
         super().__init__()
-        assert n_embd == n_input
-        self.encoder = Encoder(vocab_size, n_embd, n_head, n_layer, block_size, dropout)
+        self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
+        self.position_embedding_table = nn.Embedding(block_size, n_embd)
+        self.blocks = nn.Sequential(
+            *[
+                Block(n_embd, n_head, block_size, dropout, masked=False)
+                for _ in range(n_layer)
+            ]
+        )
+        self.ln_f = nn.LayerNorm(n_embd)
         self.classifier = nn.Sequential(
             nn.Linear(n_input, n_hidden),
             nn.ReLU(),
             nn.Linear(n_hidden, n_output),
         )
+        self.attn_maps: torch.Tensor = None
 
-    def forward(self, x: torch.Tensor, targets: torch.Tensor = None):
-        x = self.encoder(x)
+    def forward(self, idx: torch.Tensor, targets: torch.Tensor = None):
+        B, T = idx.shape
+        tok_emb = self.token_embedding_table(idx)
+        pos_emb = self.position_embedding_table(torch.arange(T))
+        x = tok_emb + pos_emb
+        x = self.blocks(x)
+        x = self.ln_f(x)
+        self.attn_maps = torch.stack([block.attn_maps for block in self.blocks])
         x = x.mean(dim=1)
         logits = self.classifier(x)
 
@@ -159,7 +139,7 @@ class Classifier(nn.Module):
             loss = None
         else:
             loss = F.cross_entropy(logits, targets)
-        return logits, loss
+        return logits, loss, self.attn_maps
 
 
 class Decoder(nn.Module):
@@ -190,13 +170,7 @@ class Decoder(nn.Module):
         )
         self.ln_f = nn.LayerNorm(n_embd)
         self.lm_head = nn.Linear(n_embd, vocab_size)
-        self.apply(self._init_weights)
-
-    def _init_weights(self, module):
-        if isinstance(module, nn.Linear):
-            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
-            if module.bias is not None:
-                torch.nn.init.zeros_(module.bias)
+        self.attn_maps: torch.Tensor = None
 
     def forward(self, idx: torch.Tensor, targets: torch.Tensor = None):
         B, T = idx.shape
@@ -206,6 +180,7 @@ class Decoder(nn.Module):
         x = self.blocks(x)
         x = self.ln_f(x)
         logits = self.lm_head(x)
+        self.attn_maps = torch.stack([block.attn_maps for block in self.blocks])
 
         if targets is None:
             loss = None
@@ -214,7 +189,7 @@ class Decoder(nn.Module):
             logits = logits.view(B * T, C)
             targets = targets.view(B * T)
             loss = F.cross_entropy(logits, targets)
-        return logits, loss
+        return logits, loss, self.attn_maps
 
     def generate(self, idx, max_new_tokens):
         for _ in range(max_new_tokens):
