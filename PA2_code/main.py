@@ -169,6 +169,7 @@ def main():
         n_input,
         n_hidden,
         n_output,
+        alibi=True,
     ).to(device)
     optimizer = torch.optim.AdamW(CLS_model.parameters(), lr=learning_rate)
     for epoch in range(epochs_CLS):
@@ -199,6 +200,7 @@ def main():
         0,
         CLS_model.token_embedding_table,
         CLS_model.position_embedding_table,
+        alibi=True,
     ).to(device)
     optimizer = torch.optim.AdamW(LM_model.parameters(), lr=learning_rate)
     for i, (xb, yb) in enumerate(train_LM_loader):

@@ -1,3 +1,4 @@
+import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -35,7 +36,7 @@ class MultiHeadAttention(nn.Module):
     def __init__(
         self,
         n_embd: int,
-        num_heads: int,
+        n_head: int,
         head_size: int,
         block_size: int,
         dropout: float,
@@ -45,10 +46,10 @@ class MultiHeadAttention(nn.Module):
         self.heads = nn.ModuleList(
             [
                 Head(n_embd, head_size, block_size, dropout, masked)
-                for _ in range(num_heads)
+                for _ in range(n_head)
             ]
         )
-        self.proj = nn.Linear(head_size * num_heads, n_embd)
+        self.proj = nn.Linear(head_size * n_head, n_embd)
         self.dropout = nn.Dropout(dropout)
         self.attn_maps: torch.Tensor = None
 
@@ -75,13 +76,24 @@ class FeedFoward(nn.Module):
 
 class Block(nn.Module):
     def __init__(
-        self, n_embd: int, n_head: int, block_size: int, dropout: float, masked: bool
+        self,
+        n_embd: int,
+        n_head: int,
+        block_size: int,
+        dropout: float,
+        masked: bool,
+        alibi: bool,
     ):
         super().__init__()
         head_size = n_embd // n_head
-        self.sa = MultiHeadAttention(
-            n_embd, n_head, head_size, block_size, dropout, masked
-        )
+        if alibi:
+            self.sa = AlibiMultiHeadAttention(
+                n_embd, n_head, head_size, block_size, dropout, masked
+            )
+        else:
+            self.sa = MultiHeadAttention(
+                n_embd, n_head, head_size, block_size, dropout, masked
+            )
         self.ffwd = FeedFoward(n_embd, dropout)
         self.ln1 = nn.LayerNorm(n_embd)
         self.ln2 = nn.LayerNorm(n_embd)
@@ -106,13 +118,15 @@ class Encoder(nn.Module):
         n_input: int,
         n_hidden: int,
         n_output: int,
+        alibi: bool = False,
     ):
         super().__init__()
+        self.alibi = alibi
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
-        self.position_embedding_table = nn.Embedding(block_size, n_embd)
+        self.position_embedding_table = nn.Embedding(block_size, n_embd) if not alibi else None
         self.blocks = nn.Sequential(
             *[
-                Block(n_embd, n_head, block_size, dropout, masked=False)
+                Block(n_embd, n_head, block_size, dropout, masked=False, alibi=alibi)
                 for _ in range(n_layer)
             ]
         )
@@ -127,8 +141,11 @@ class Encoder(nn.Module):
     def forward(self, idx: torch.Tensor, targets: torch.Tensor = None):
         B, T = idx.shape
         tok_emb = self.token_embedding_table(idx)
-        pos_emb = self.position_embedding_table(torch.arange(T))
-        x = tok_emb + pos_emb
+        if self.alibi:
+            x = tok_emb
+        else:
+            pos_emb = self.position_embedding_table(torch.arange(T))
+            x = tok_emb + pos_emb
         x = self.blocks(x)
         x = self.ln_f(x)
         self.attn_maps = torch.stack([block.attn_maps for block in self.blocks])
@@ -153,18 +170,20 @@ class Decoder(nn.Module):
         dropout: float,
         token_embedding_table: nn.Embedding,
         position_embedding_table: nn.Embedding,
+        alibi: bool = False,
     ):
         super().__init__()
         self.block_size = block_size
+        self.alibi = alibi
         self.token_embedding_table = nn.Embedding.from_pretrained(
             token_embedding_table.weight, freeze=False
         )
         self.position_embedding_table = nn.Embedding.from_pretrained(
             position_embedding_table.weight, freeze=False
-        )
+        ) if not alibi else None
         self.blocks = nn.Sequential(
             *[
-                Block(n_embd, n_head, block_size, dropout, masked=True)
+                Block(n_embd, n_head, block_size, dropout, masked=True, alibi=alibi)
                 for _ in range(n_layer)
             ]
         )
@@ -175,8 +194,11 @@ class Decoder(nn.Module):
     def forward(self, idx: torch.Tensor, targets: torch.Tensor = None):
         B, T = idx.shape
         tok_emb = self.token_embedding_table(idx)
-        pos_emb = self.position_embedding_table(torch.arange(T))
-        x = tok_emb + pos_emb
+        if self.alibi:
+            x = tok_emb
+        else:
+            pos_emb = self.position_embedding_table(torch.arange(T))
+            x = tok_emb + pos_emb
         x = self.blocks(x)
         x = self.ln_f(x)
         logits = self.lm_head(x)
@@ -200,3 +222,85 @@ class Decoder(nn.Module):
             idx_next = torch.multinomial(probs, num_samples=1)
             idx = torch.cat((idx, idx_next), dim=1)
         return idx
+
+
+class AlibiHead(nn.Module):
+    def __init__(
+        self,
+        n_embd: int,
+        head_size: int,
+        block_size: int,
+        dropout: float,
+        masked: bool,
+        slope: float,
+    ):
+        super().__init__()
+        self.key = nn.Linear(n_embd, head_size, bias=False)
+        self.query = nn.Linear(n_embd, head_size, bias=False)
+        self.value = nn.Linear(n_embd, head_size, bias=False)
+        self.register_buffer("tril", torch.tril(torch.ones(block_size, block_size)))
+        self.dropout = nn.Dropout(dropout)
+        self.masked = masked
+        self.register_buffer("alibi_bias", self.get_alibi_biases(block_size) * slope)
+        self.attn_map: torch.Tensor = None
+
+    @torch.no_grad()
+    def get_alibi_biases(self, block_size: int):
+        x = torch.arange(block_size)[None, :]
+        y = torch.arange(block_size)[:, None]
+        return torch.tril(x - y) + torch.triu(y - x)
+
+    def forward(self, x: torch.Tensor):
+        B, T, C = x.shape
+        k = self.key(x)
+        q = self.query(x)
+        wei = q @ k.transpose(-2, -1) * k.shape[-1] ** -0.5
+        wei += self.alibi_bias[:T, :T]
+        if self.masked:
+            wei = wei.masked_fill(self.tril[:T, :T] == 0, float("-inf"))
+        wei = F.softmax(wei, dim=-1)
+        self.attn_map = wei
+        wei = self.dropout(wei)
+        v = self.value(x)
+        out = wei @ v
+        return out
+
+
+class AlibiMultiHeadAttention(nn.Module):
+    def __init__(
+        self,
+        n_embd: int,
+        n_head: int,
+        head_size: int,
+        block_size: int,
+        dropout: float,
+        masked: bool,
+    ):
+        super().__init__()
+        self.register_buffer("slopes", self.get_slopes(n_head))
+        self.heads = nn.ModuleList(
+            [
+                AlibiHead(n_embd, head_size, block_size, dropout, masked, self.slopes[i])
+                for i in range(n_head)
+            ]
+        )
+        self.proj = nn.Linear(head_size * n_head, n_embd)
+        self.dropout = nn.Dropout(dropout)
+        self.attn_maps: torch.Tensor = None
+
+    @torch.no_grad()
+    def get_slopes(self, n_head: int):
+        n = 2 ** math.floor(math.log2(n_head))
+        m_0 = 2.0 ** (-8.0 / n)
+        m = torch.pow(m_0, torch.arange(1, 1 + n))
+        if n < n_head:
+            m_hat_0 = 2.0 ** (-4.0 / n)
+            m_hat = torch.pow(m_hat_0, torch.arange(1, 1 + 2 * (n_head - n), 2))
+            m = torch.cat([m, m_hat])
+        return m
+
+    def forward(self, x: torch.Tensor):
+        out = torch.cat([h(x) for h in self.heads], dim=-1)
+        out = self.dropout(self.proj(out))
+        self.attn_maps = torch.stack([h.attn_map for h in self.heads])
+        return out
