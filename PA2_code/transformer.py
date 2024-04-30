@@ -168,19 +168,25 @@ class Decoder(nn.Module):
         n_layer: int,
         block_size: int,
         dropout: float,
-        token_embedding_table: nn.Embedding,
-        position_embedding_table: nn.Embedding,
+        token_embedding_table: nn.Embedding = None,
+        position_embedding_table: nn.Embedding = None,
         alibi: bool = False,
     ):
         super().__init__()
         self.block_size = block_size
         self.alibi = alibi
-        self.token_embedding_table = nn.Embedding.from_pretrained(
-            token_embedding_table.weight, freeze=False
-        )
-        self.position_embedding_table = nn.Embedding.from_pretrained(
-            position_embedding_table.weight, freeze=False
-        ) if not alibi else None
+        if token_embedding_table is None:
+            self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
+        else:
+            self.token_embedding_table = nn.Embedding.from_pretrained(
+                token_embedding_table.weight, freeze=False
+            )
+        if position_embedding_table is None:
+            self.position_embedding_table = nn.Embedding(block_size, n_embd) if not alibi else None
+        else:
+            self.position_embedding_table = nn.Embedding.from_pretrained(
+                position_embedding_table.weight, freeze=False
+            ) if not alibi else None
         self.blocks = nn.Sequential(
             *[
                 Block(n_embd, n_head, block_size, dropout, masked=True, alibi=alibi)

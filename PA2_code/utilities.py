@@ -3,13 +3,12 @@ import torch
 
 
 class Utilities:
-    def __init__(self, tokenizer, model, name=""):
-        self.name = name
+    def __init__(self, tokenizer, model):
         self.tokenizer = tokenizer
         self.model = model
 
     @torch.no_grad()
-    def sanity_check(self, sentence, block_size):
+    def sanity_check(self, sentence, block_size, savename=""):
         # Encode the sentence using the tokenizer
         wordids = self.tokenizer.encode(sentence)
 
@@ -57,5 +56,5 @@ class Utilities:
             # Save the plot
             print(f"attn_maps/attn_map_{self.model.__class__.__name__}_{j + 1}.png")
             plt.savefig(
-                f"attn_maps/{self.name}_{self.model.__class__.__name__}_{j + 1}.png"
+                f"attn_maps/{savename}_{self.model.__class__.__name__}_{j + 1}.png"
             )

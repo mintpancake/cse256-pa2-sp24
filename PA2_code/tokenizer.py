@@ -1,5 +1,5 @@
 from nltk.tokenize import word_tokenize
-import os
+from tokenizers import Tokenizer, models, pre_tokenizers, decoders, trainers
 
 
 class SimpleTokenizer:
@@ -33,3 +33,17 @@ class SimpleTokenizer:
         """Decode the list of indices back into text."""
         return ' '.join([self.itos.get(index, '<unk>') for index in indices])
     
+class BPEtokenizer:
+    def __init__(self, text):
+        self.tokenizer = Tokenizer(models.BPE())
+        self.tokenizer.pre_tokenizer = pre_tokenizers.Whitespace()
+        self.tokenizer.decoder = decoders.BPEDecoder()
+        trainer = trainers.BpeTrainer(vocab_size=25000, min_frequency=2)
+        self.tokenizer.train_from_iterator([text], trainer)
+        self.vocab_size = self.tokenizer.get_vocab_size()
+
+    def encode(self, text):
+        return self.tokenizer.encode(text).ids
+
+    def decode(self, ids):
+        return self.tokenizer.decode(ids)
