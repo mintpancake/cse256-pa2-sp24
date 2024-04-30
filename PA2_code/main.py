@@ -121,7 +121,6 @@ def main():
         tok = "simple"
         dropout = 0
         use_scheduler = False
-        use_embd_from_cls = True
     elif sys.argv[1] == "part1":
         run_cls = True
         run_lm = False
@@ -130,7 +129,6 @@ def main():
         tok = "simple"
         dropout = 0
         use_scheduler = False
-        use_embd_from_cls = True
     elif sys.argv[1] == "part2":
         run_cls = False
         run_lm = True
@@ -139,7 +137,6 @@ def main():
         tok = "simple"
         dropout = 0
         use_scheduler = False
-        use_embd_from_cls = False
     elif sys.argv[1] == "part3":
         run_cls = True
         run_lm = True
@@ -148,7 +145,6 @@ def main():
         tok = "bpe"
         dropout = 0.2
         use_scheduler = True
-        use_embd_from_cls = True
     elif sys.argv[1] == "part3-1":
         run_cls = True
         run_lm = True
@@ -157,7 +153,6 @@ def main():
         tok = "simple"
         dropout = 0
         use_scheduler = False
-        use_embd_from_cls = True
 
     torch.manual_seed(256)
     print("Loading data and creating tokenizer ...")
@@ -268,8 +263,8 @@ def main():
             n_layer,
             block_size,
             dropout,
-            CLS_model.token_embedding_table if use_embd_from_cls else None,
-            CLS_model.position_embedding_table if use_embd_from_cls else None,
+            None,
+            None,
             alibi=use_alibi,
         ).to(device)
         optimizer = torch.optim.AdamW(LM_model.parameters(), lr=learning_rate)
