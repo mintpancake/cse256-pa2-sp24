@@ -113,7 +113,7 @@ def compute_perplexity(decoderLMmodel, data_loader, eval_iters=100):
 def main():
     sent0 = "The time has come to put an end to Arab-Israeli conflict."
     sent1 = "Now is the time for Palestinians to focus on what they can build."
-    if len(sys.argv) == 1 or sys.argv[1] not in ["part1", "part2", "part3"]:
+    if len(sys.argv) != 2 or sys.argv[1] not in ["part1", "part2", "part3", "part3-1"]:
         run_cls = True
         run_lm = True
         epochs_CLS = 15
