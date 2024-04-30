@@ -149,6 +149,15 @@ def main():
         dropout = 0.2
         use_scheduler = True
         use_embd_from_cls = True
+    elif sys.argv[1] == "part3-1":
+        run_cls = True
+        run_lm = True
+        epochs_CLS = 15
+        use_alibi = True
+        tok = "simple"
+        dropout = 0
+        use_scheduler = False
+        use_embd_from_cls = True
 
     torch.manual_seed(256)
     print("Loading data and creating tokenizer ...")
