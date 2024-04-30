@@ -1,0 +1,65 @@
+(cse256) PS D:\Local\Workspace\CSE256\cse256-pa2-sp24> python -u "d:\Local\Workspace\CSE256\cse256-pa2-sp24\PA2_code\main.py"
+Loading data and creating tokenizer ...
+Vocabulary size is 5755
+Epoch: 0, Train Accuracy: 44.64627151051625, Test Accuracy: 33.333333333333336
+Epoch: 1, Train Accuracy: 44.64627151051625, Test Accuracy: 33.333333333333336
+Epoch: 2, Train Accuracy: 56.35755258126195, Test Accuracy: 49.6
+Epoch: 3, Train Accuracy: 64.5793499043977, Test Accuracy: 57.06666666666667
+Epoch: 4, Train Accuracy: 74.90439770554494, Test Accuracy: 64.8
+Epoch: 5, Train Accuracy: 80.87954110898661, Test Accuracy: 70.8
+Epoch: 6, Train Accuracy: 84.51242829827916, Test Accuracy: 72.8
+Epoch: 7, Train Accuracy: 91.92160611854685, Test Accuracy: 79.33333333333333
+Epoch: 8, Train Accuracy: 94.07265774378585, Test Accuracy: 82.4
+Epoch: 9, Train Accuracy: 95.88910133843213, Test Accuracy: 83.86666666666666
+Epoch: 10, Train Accuracy: 93.78585086042065, Test Accuracy: 81.06666666666666
+Epoch: 11, Train Accuracy: 97.4187380497132, Test Accuracy: 84.26666666666667
+Epoch: 12, Train Accuracy: 96.17590822179733, Test Accuracy: 83.06666666666666
+Epoch: 13, Train Accuracy: 97.89674952198853, Test Accuracy: 85.33333333333333
+Epoch: 14, Train Accuracy: 98.18355640535373, Test Accuracy: 85.73333333333333
+Input tensor shape: torch.Size([1, 32])
+Number of attention maps: 8
+attn_maps/attn_map_Encoder_1.png
+attn_maps/attn_map_Encoder_2.png
+attn_maps/attn_map_Encoder_3.png
+attn_maps/attn_map_Encoder_4.png
+attn_maps/attn_map_Encoder_5.png
+attn_maps/attn_map_Encoder_6.png
+attn_maps/attn_map_Encoder_7.png
+attn_maps/attn_map_Encoder_8.png
+Input tensor shape: torch.Size([1, 32])
+Number of attention maps: 8
+attn_maps/attn_map_Encoder_1.png
+attn_maps/attn_map_Encoder_2.png
+attn_maps/attn_map_Encoder_3.png
+attn_maps/attn_map_Encoder_4.png
+attn_maps/attn_map_Encoder_5.png
+attn_maps/attn_map_Encoder_6.png
+attn_maps/attn_map_Encoder_7.png
+attn_maps/attn_map_Encoder_8.png
+Iteration: 99, Train Perplexity: 580.19140625, Test Perplexity hbush: 709.6650390625, Test Perplexity obama: 679.6985473632812, Test Perplexity wbush: 772.5736694335938
+Iteration: 199, Train Perplexity: 392.3570556640625, Test Perplexity hbush: 547.9898681640625, Test Perplexity obama: 522.1256713867188, Test Perplexity wbush: 612.529052734375
+Iteration: 299, Train Perplexity: 272.218505859375, Test Perplexity hbush: 463.7820739746094, Test Perplexity obama: 424.9862365722656, Test Perplexity wbush: 522.8549194335938
+Iteration: 399, Train Perplexity: 197.73545837402344, Test Perplexity hbush: 414.879638671875, Test Perplexity obama: 379.97589111328125, Test Perplexity wbush: 480.94805908203125
+Iteration: 499, Train Perplexity: 154.59033203125, Test Perplexity hbush: 394.35595703125, Test Perplexity obama: 352.42041015625, Test Perplexity wbush: 468.0076904296875
+Input tensor shape: torch.Size([1, 32])
+Number of attention maps: 8
+attn_maps/attn_map_Decoder_1.png
+attn_maps/attn_map_Decoder_2.png
+attn_maps/attn_map_Decoder_3.png
+attn_maps/attn_map_Decoder_4.png
+d:\Local\Workspace\CSE256\cse256-pa2-sp24\PA2_code\utilities.py:50: RuntimeWarning: More than 20 figures have been opened. Figures created through the pyplot interface (`matplotlib.pyplot.figure`) are retained until explicitly closed and may consume too much memory. (To control this warning, see the rcParam `figure.max_open_warning`). Consider using `matplotlib.pyplot.close()`.
+  fig, ax = plt.subplots()
+attn_maps/attn_map_Decoder_5.png
+attn_maps/attn_map_Decoder_6.png
+attn_maps/attn_map_Decoder_7.png
+attn_maps/attn_map_Decoder_8.png
+Input tensor shape: torch.Size([1, 32])
+Number of attention maps: 8
+attn_maps/attn_map_Decoder_1.png
+attn_maps/attn_map_Decoder_2.png
+attn_maps/attn_map_Decoder_3.png
+attn_maps/attn_map_Decoder_4.png
+attn_maps/attn_map_Decoder_5.png
+attn_maps/attn_map_Decoder_6.png
+attn_maps/attn_map_Decoder_7.png
+attn_maps/attn_map_Decoder_8.png

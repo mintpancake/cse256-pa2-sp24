@@ -1,5 +1,3 @@
 .*/
-__pycache__/
 .*.*
-*.png
-*.pdf
+__pycache__/

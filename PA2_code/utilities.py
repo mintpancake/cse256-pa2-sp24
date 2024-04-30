@@ -54,7 +54,7 @@ class Utilities:
             plt.title(f"Attention Map {j + 1}")
 
             # Save the plot
-            print(f"attn_maps/attn_map_{self.model.__class__.__name__}_{j + 1}.png")
+            print(f"attn_maps/{savename}_{self.model.__class__.__name__}_{j + 1}.png")
             plt.savefig(
                 f"attn_maps/{savename}_{self.model.__class__.__name__}_{j + 1}.png"
             )
